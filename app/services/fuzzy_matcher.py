@@ -37,7 +37,25 @@ def perform_fuzzy_match_with_relation(source: List[Tuple[str, str]], target: Lis
             target_list.extend([t for t in target if t[1]==target_fields["target_relation"]])
         matches_for_current_relation = perform_fuzzy_matching_for_relations_and_fields(source_list, target_list,threshold_for_fields)
         response_matche.extend(matches_for_current_relation)
-    return response_matche
+    
+    full_matches = set([match[3] for match in response_matche if match[4] == 100.00])
+    excluded_matches = [match for match in response_matche if match[4] == 100.00]
+
+    # Sort the non-100% matches by x[4] in descending order
+    non_exact_matches = sorted(
+        [x for x in response_matche if x[4] != 100.00 and x[4] != 0.00], 
+        key=lambda x: x[4], 
+        reverse=True
+    )
+
+    # Iterate through the sorted non-exact matches
+    for i in non_exact_matches:
+        check_exist = check_and_add_record(full_matches, i[3])
+        if check_exist:
+            excluded_matches.append(i)
+
+    return excluded_matches
+    #return response_matche
 
 def get_relation_matches(source_relations, target_relations, higher_threshold=75, lower_threshold=40):
     return_matches = []
@@ -173,6 +191,7 @@ def perform_fuzzy_match_with_relation_excluded_full_matches(source, target,thres
             target_list.extend([t for t in target if t[1]==target_fields["target_relation"]])
         matches_for_current_relation = perform_fuzzy_matching_for_relations_and_fields(source_list, target_list,threshold_for_fields)
         response_matche.extend(matches_for_current_relation)
+    
     full_matches = set([match[3] for match in response_matche if match[4] == 100.00])
     excluded_matches = [match for match in response_matche if match[4] == 100.00]
 
@@ -186,7 +205,7 @@ def perform_fuzzy_match_with_relation_excluded_full_matches(source, target,thres
     # Iterate through the sorted non-exact matches
     for i in non_exact_matches:
         check_exist = check_and_add_record(full_matches, i[3])
-        if not check_exist:
+        if check_exist:
             excluded_matches.append(i)
 
     return excluded_matches
