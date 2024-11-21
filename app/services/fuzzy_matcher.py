@@ -173,12 +173,20 @@ def perform_fuzzy_match_with_relation_excluded_full_matches(source, target,thres
             target_list.extend([t for t in target if t[1]==target_fields["target_relation"]])
         matches_for_current_relation = perform_fuzzy_matching_for_relations_and_fields(source_list, target_list,threshold_for_fields)
         response_matche.extend(matches_for_current_relation)
-    full_matches = set([match[3] for match in response_matche if match[4]==100.00])
-    excluded_matches = [match for match in response_matche if match[4]==100.00]
-    for i in [x for x in response_matche if x[4]!=100.00]:
-        check_exist = check_and_add_record(full_matches,i[3])
-        if check_exist:
-            pass
-        else:
+    full_matches = set([match[3] for match in response_matche if match[4] == 100.00])
+    excluded_matches = [match for match in response_matche if match[4] == 100.00]
+
+    # Sort the non-100% matches by x[4] in descending order
+    non_exact_matches = sorted(
+        [x for x in response_matche if x[4] != 100.00 and x[4] != 0.00], 
+        key=lambda x: x[4], 
+        reverse=True
+    )
+
+    # Iterate through the sorted non-exact matches
+    for i in non_exact_matches:
+        check_exist = check_and_add_record(full_matches, i[3])
+        if not check_exist:
             excluded_matches.append(i)
-    return response_matche
+
+    return excluded_matches
