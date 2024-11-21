@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException
-from app.models.fuzzy_matcher_model import MatchRequest, MatchResponse
-from app.services.fuzzy_matcher import perform_fuzzy_match
+from app.models.fuzzy_matcher_model import MatchRequest, MatchResponse, MatchRequestWithRelation
+from app.services.fuzzy_matcher import perform_fuzzy_match, perform_fuzzy_match_with_relation
 
 router = APIRouter()
 #routes
@@ -10,4 +10,13 @@ def fuzzy_match(data: MatchRequest):
         raise HTTPException(status_code=400, detail="Source and target lists cannot be empty.")
     
     matches = perform_fuzzy_match(data.source, data.target)
+    return MatchResponse(matches=matches)
+
+#routes
+@router.post("/vsky_fuzzy_match_with_relation", response_model=MatchResponse)
+def fuzzy_match_with_relation(data: MatchRequestWithRelation):
+    if not data.source or not data.target:
+        raise HTTPException(status_code=400, detail="Source and target lists cannot be empty.")
+    
+    matches = perform_fuzzy_match_with_relation(data.source, data.target)
     return MatchResponse(matches=matches)

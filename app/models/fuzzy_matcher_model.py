@@ -7,3 +7,8 @@ class MatchRequest(BaseModel):
 
 class MatchResponse(BaseModel):
     matches: List[Tuple[str, str, str, str, float]]
+
+#with Relation Name
+class MatchRequestWithRelation(BaseModel):
+    source: List[Tuple[str, str, str]]
+    target: List[Tuple[str, str, str]]
