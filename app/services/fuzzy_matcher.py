@@ -19,6 +19,8 @@ def perform_fuzzy_match(source: List[Tuple[str, str]], target: List[Tuple[str, s
 
     return matches
 
+
+#-------------------------------------------------------------------------------------------
 def perform_fuzzy_match_with_relation(source: List[Tuple[str, str]], target: List[Tuple[str, str]],threshold_for_fields = 75,higher_threshold_for_relation = 75,lower_threshold_for_relation = 40) -> List[Tuple[str, str, str, str, float]]:
     response_matche = []
     
@@ -67,7 +69,7 @@ def get_relation_matches(source_relations, target_relations, higher_threshold=75
                 })
             else:
                 top_higher_match = max(
-                    return_matches, 
+                    higher_matches, 
                     key=lambda x: x["score"]
                 )
                 if any(keyword in top_higher_match["target_relation"].lower() for keyword in ['header', 'line', 'lines']):
@@ -145,3 +147,38 @@ def perform_fuzzy_matching_for_relations_and_fields(source, target,threshold):
             matches.append((src_id, src_name, "", "", 0.00))  # No match
 
     return matches
+
+#--------------------------------------------------------------------------------------------
+def check_and_add_record(hash_set, record):
+    if record in hash_set:
+        return False
+    else:
+        hash_set.add(record)
+        return True
+
+def perform_fuzzy_match_with_relation_excluded_full_matches(source, target,threshold_for_fields = 75,higher_threshold_for_relation = 75,lower_threshold_for_relation = 40):
+    response_matche = []
+    
+    #set source and target relations 
+    source_relations = list(set([source[1] for source in source]))
+    target_relations = list(set([target[1] for target in target]))
+    #print(source)
+    #get relation matches
+    relation_matches = get_relation_matches(source_relations, target_relations,higher_threshold_for_relation,lower_threshold_for_relation)
+    #set source and target for field matching
+    for relation_match in relation_matches: 
+        source_list = [source_fields for source_fields in source if source_fields[1] == relation_match["source_relation"]]        
+        target_list = []
+        for target_fields in relation_match["target_relations"]:
+            target_list.extend([t for t in target if t[1]==target_fields["target_relation"]])
+        matches_for_current_relation = perform_fuzzy_matching_for_relations_and_fields(source_list, target_list,threshold_for_fields)
+        response_matche.extend(matches_for_current_relation)
+    full_matches = set([match[3] for match in response_matche if match[4]==100.00])
+    excluded_matches = [match for match in response_matche if match[4]==100.00]
+    for i in [x for x in response_matche if x[4]!=100.00]:
+        check_exist = check_and_add_record(full_matches,i[3])
+        if check_exist:
+            pass
+        else:
+            excluded_matches.append(i)
+    return response_matche
