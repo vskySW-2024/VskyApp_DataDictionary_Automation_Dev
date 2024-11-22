@@ -182,7 +182,7 @@ def perform_fuzzy_match_with_relation_excluded_full_matches(source, target,thres
     target_relations = list(set([target[1] for target in target]))
     #print(source)
     #get relation matches
-    relation_matches = get_relation_matches(source_relations, target_relations,higher_threshold_for_relation,lower_threshold_for_relation)
+    relation_matches = get_relation_matches_full_matches(source_relations, target_relations,higher_threshold_for_relation,lower_threshold_for_relation)
     #set source and target for field matching
     for relation_match in relation_matches: 
         source_list = [source_fields for source_fields in source if source_fields[1] == relation_match["source_relation"]]        
@@ -209,3 +209,110 @@ def perform_fuzzy_match_with_relation_excluded_full_matches(source, target,thres
             excluded_matches.append(i)
 
     return excluded_matches
+
+def get_relation_matches_full_matches(source_relations, target_relations, higher_threshold=75, lower_threshold=40):
+    return_matches = []
+    
+    for source_relation in source_relations:
+        higher_matches = []
+        lower_matches = []
+        
+        for target_relation in target_relations:
+            # Calculate fuzzy ratio
+            fuzzy_ratio = fuzz.ratio(source_relation, target_relation)
+            if fuzzy_ratio >= higher_threshold:
+                higher_matches.append({
+                    "target_relation":target_relation,
+                    "score": fuzzy_ratio
+                })
+            elif lower_threshold < fuzzy_ratio < higher_threshold:
+                lower_matches.append({
+                    "target_relation":target_relation,
+                    "score": fuzzy_ratio
+                })
+        
+        # Handle higher matches
+        if higher_matches:
+            if len(higher_matches) == 1:  # Only one higher match
+                return_matches.append({
+                    "source_relation":source_relation,
+                    "target_relations": higher_matches
+                })
+            else:
+                top_higher_match = max(
+                    return_matches, 
+                    key=lambda x: x["score"]
+                )
+                if any(keyword in top_higher_match["target_relation"].lower() for keyword in ['header', 'line', 'lines']):
+                    ordered_higher_matches = sorted(
+                        [
+                            x for x in lower_matches                            
+                            if x["target_relation"].lower().replace('header', 'line') == top_higher_match["target_relation"].lower()
+                            or x["target_relation"].lower().replace('lines', 'line') == top_higher_match["target_relation"].lower()
+                        ],
+                        key=lambda x: x["score"],
+                        reverse=True
+                    )
+                    if len(ordered_higher_matches) != 0:                    
+                        ordered_higher_matches = ordered_higher_matches[:min(len(ordered_higher_matches),2)]
+                    return_matches.append({
+                        "source_relation":source_relation,
+                        "target_relations": ordered_higher_matches
+                    })                    
+                else:                    
+                    return_matches.append({
+                        "source_relation":source_relation,
+                        "target_relations": [top_higher_match]
+                    }) 
+                
+                
+        
+        # Handle lower matches if no higher matches
+        elif lower_matches:
+            #adding subset matching
+            matches_based_on_subset_condition = []
+            for lower_match in lower_matches:
+                subset_ratio = fuzz.token_set_ratio(source_relation,lower_match["target_relation"])
+                if subset_ratio == 100.00:
+                    matches_based_on_subset_condition.append({
+                        "target_relation":lower_match["target_relation"],
+                        "score": lower_match["score"]
+                    })
+            if matches_based_on_subset_condition:
+                return_matches.append({
+                    "source_relation":source_relation,
+                    "target_relations": [max(matches_based_on_subset_condition, key= lambda x:x["score"])]
+                })
+            else: #not any subset conditon satsfied then
+                if len(lower_matches) == 1:  # Only one lower match
+                    return_matches.append({
+                        "source_relation":source_relation,
+                        "target_relations": lower_matches
+                    })
+                else:
+                    top_lower_match = max(
+                        lower_matches, 
+                        key=lambda x: x["score"]
+                    )
+                    if any(keyword in top_lower_match["target_relation"].lower() for keyword in ['header', 'line', 'lines']):
+                        ordered_lower_matches = sorted(
+                            [
+                                x for x in lower_matches                            
+                                if x["target_relation"].lower().replace('header', 'line') == top_lower_match["target_relation"].lower()
+                                or x["target_relation"].lower().replace('lines', 'line') == top_lower_match["target_relation"].lower()
+                            ],
+                            key=lambda x: x["score"],
+                            reverse=True
+                        )
+                        if len(ordered_lower_matches) != 0:                    
+                            ordered_lower_matches = ordered_lower_matches[:min(len(ordered_lower_matches),2)]
+                        return_matches.append({
+                            "source_relation":source_relation,
+                            "target_relations": ordered_lower_matches
+                        })                    
+                    else:                    
+                        return_matches.append({
+                            "source_relation":source_relation,
+                            "target_relations": [top_lower_match]
+                        }) 
+    return return_matches

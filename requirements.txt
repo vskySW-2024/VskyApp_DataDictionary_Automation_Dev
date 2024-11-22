@@ -2,5 +2,3 @@ fastapi
 uvicorn
 pydantic
 rapidfuzz
-python-dotenv
-fuzzywuzzy
