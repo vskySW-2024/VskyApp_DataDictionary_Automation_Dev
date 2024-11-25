@@ -1,5 +1,6 @@
 from typing import List, Tuple, Any
 from rapidfuzz import process, fuzz
+import re
 #import numpy as np
 
 def perform_fuzzy_match(source: List[Tuple[str, str]], target: List[Tuple[str, str]]) -> List[Tuple[str, str, str, str, float]]:
@@ -214,25 +215,52 @@ def get_relation_matches_full_matches(source_relations, target_relations, higher
     return_matches = []
     
     for source_relation in source_relations:
+        is_spec_category = False        
         higher_matches = []
-        lower_matches = []
-        
-        for target_relation in target_relations:
-            # Calculate fuzzy ratio
-            fuzzy_ratio = fuzz.ratio(source_relation, target_relation)
-            if fuzzy_ratio >= higher_threshold:
-                higher_matches.append({
-                    "target_relation":target_relation,
-                    "score": fuzzy_ratio
-                })
-            elif lower_threshold < fuzzy_ratio < higher_threshold:
-                lower_matches.append({
-                    "target_relation":target_relation,
-                    "score": fuzzy_ratio
-                })
-        
+        lower_matches = []        
+        if re.match(r'^Spec.*\d$', source_relation):
+            is_spec_category_exist = False  
+            partial_spec_matches = []
+            for target_relation in target_relations:            
+                source_number = re.search(r'\d+$', source_relation).group()
+                is_spec_category = True 
+                if re.match(r'^Spec*.*{number}$'.format(number=source_number), target_relation): 
+                    return_matches.append({
+                        "source_relation":source_relation,
+                        "target_relations": [{
+                            "target_relation":target_relation,
+                            "score":100.00
+                        }]
+                    }) 
+                    is_spec_category_exist = True
+                    break
+                if fuzz.partial_token_set_ratio(source_relation,target_relation) == 100.00:
+                    partial_spec_matches.append({
+                        "target_relation":target_relation,
+                        "score":100
+                    }) 
+            if partial_spec_matches and not is_spec_category_exist:
+                return_matches.append({
+                    "source_relation":source_relation,
+                    "target_relations": partial_spec_matches
+                })  
+                    
+        if not is_spec_category:
+            for target_relation in target_relations:            
+                # Calculate fuzzy ratio
+                fuzzy_ratio = fuzz.ratio(source_relation, target_relation)
+                if fuzzy_ratio >= higher_threshold:
+                    higher_matches.append({
+                        "target_relation":target_relation,
+                        "score": fuzzy_ratio
+                    })
+                elif lower_threshold < fuzzy_ratio < higher_threshold:
+                    lower_matches.append({
+                        "target_relation":target_relation,
+                        "score": fuzzy_ratio
+                })        
         # Handle higher matches
-        if higher_matches:
+        if len(higher_matches)!=0:
             if len(higher_matches) == 1:  # Only one higher match
                 return_matches.append({
                     "source_relation":source_relation,
@@ -264,11 +292,8 @@ def get_relation_matches_full_matches(source_relations, target_relations, higher
                         "source_relation":source_relation,
                         "target_relations": [top_higher_match]
                     }) 
-                
-                
-        
         # Handle lower matches if no higher matches
-        elif lower_matches:
+        elif len(lower_matches) !=0:            
             #adding subset matching
             matches_based_on_subset_condition = []
             for lower_match in lower_matches:
